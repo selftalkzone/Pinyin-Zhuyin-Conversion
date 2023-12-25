@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>自语区 - 拼音注音转换</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="pyzyToneTableMtdNew.js"></script>
+
+<style>
+* {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box; /* Ref: https://www.w3schools.com/css/css3_box-sizing.asp */
+}
+
+table#myTable {  /* For table with id="myTable" only. */
+  width: 100%;
+  border:1px solid black;
+  border-collapse: collapse;
+}
+
+table#myTable th, table#myTable td {  /* For table with id="myTable" only. */
+  border:1px solid black;
+  border-collapse: collapse;
+  padding: 5px;
+  text-align: left;
+}
+
+.engFont { /* engFont = english Font */
+  font-family: "Times New Roman", Times, serif;
+  /*font-family: Arial, Helvetica, sans-serif;*/
+  font-size: 1em;
+}
+
+.chnFont { /* chnFont = chinese Font */
+  font-family: "Times New Roman", "Microsoft Yahei", "blackbody", "正黑體", "微軟正黑體", Times, serif;
+  /*font-family: Arial, Helvetica, "Microsoft Yahei", "blackbody", "正黑體", "微軟正黑體", Arial, sans-serif;*/
+  font-size: 1em;
+  /* Ref: */
+  /*font-family: "Times New Roman", Times, serif; Ref: https://www.w3schools.com/css/css_font.asp , https://www.w3schools.com/css/css_font_websafe.asp*/
+  /*font-family: "Arial", "Microsoft Yahei", "blackbody", "Arial", Sans-serif; Ref: https://topic.alibabacloud.com/a/cssfont-family-good-looking-chinese-fonts_1_26_10230463.html*/
+  /*font-family: 'Times New Roman','正黑體','微軟正黑體'; Ref: https://crptransfer.moe.gov.tw/ */
+}
+</style>
+
+<!--
+About zhuyin's "ㄧ"
+
+Ref-1: https://zh.wikipedia.org/wiki/注音符號
+       https://zh.wikipedia.org/wiki/%E6%B3%A8%E9%9F%B3%E7%AC%A6%E8%99%9F
+	   
+NB1:
+The zhuyin's "ㄧ" can have 2 form, one is the Vertical's "ㄧ", the other one is the Horizontal's "ㄧ".
+As we can only display the Horizontal's "ㄧ" in Html file when Chinese font is specified, so here for explaining purposes only, we will use the 中文字 '一'
+to represent it, => Horizontal's "ㄧ" look like 中文字 '一', but actually it is not 中文字 '一'.
+
+NB2:
+Why added class (.engFont) and class (.chnFont) in <style>, and apply (.engFont) to <body> and all <textarea>, and added function onOffChnFont() to insert or
+delete (.chnFont) to and from (.engFont) accordingly?
+Because we want to "Toggle between zhuyin's ㄧand 一", else we need not specify them (.engFont and .chnFont). System will supply a default font if we did not
+specify any font.
+They can be 3 cases:
+Case 1: If we let system supply a default font, it will not be a Chinese font, thus the display of zhuyin "ㄧ" will always display as a vertical "ㄧ" by system.
+Case 2: If we specify an English font, the display of zhuyin "ㄧ" will also, always display as a vertical "ㄧ" by system.
+Case 3: If we specify a Chinese font, the display of zhuyin "ㄧ" will always display as a horizontal "一" by system.
+Thus:
+(a) To always display zhuyin's "ㄧ" as a vertical "ㄧ", use Case 1 or Case 2 method.
+(b) To always display zhuyin's "ㄧ" as a horizontal "一", use Case 3 method.
+(c) To "Toggle between zhuyin's ㄧand 一", must combine Case 2 and Case 3, => One way to achieve this is to use function onOffChnFont().
+Hence:
+For pinyin users, use (a) will do as they don't use zhuyin at all.
+For zhuyin users, use (b) because they are mostly get used to horizontal "一".
+For learning both, use (c) to show that zhuyin's ㄧand 一 are the same, although one is vertical, the other is horizontal.  <--- NB: This html file use this method.
+-->
+
+<script>
+
+/* Ref: Please refer to (pyzyToneTableMtdNewUnTrim.js) for details. */
+
+
+// ============================================================== //
+
+// Group 4 of 5  (STZ custom Methods to use Tone Table data to get py zy conversion results)
+
+// ============================================================== //
+
+
+function chgPyToZy(xPyNumOrTone) {
+  //
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Why use this new method?
+  // This allow us to input a whole list of data for conversion as shown below:
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Input
+  // ni3 men2
+  // hao3 ma
+  // hao3 jiu3 bu4 jian4
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Output
+  // ni3 men2      nǐ mén      ㄋㄧˇ ㄇㄣˊ
+  // hao3 ma     hǎo ma     ㄏㄠˇ ˙ㄇㄚ
+  // hao3 jiu3 bu4 jian4       hǎo jiǔ bù jiàn      ㄏㄠˇ ㄐㄧㄡˇ ㄅㄨˋ ㄐㄧㄢˋ
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  //
+  var pyNumOrTone = xPyNumOrTone.trim(); // NB: pyNumOrTone can be in pinyin with number format or pinyin with tone mark format.
+  //                                     // NB: pyNumOrTone can also be ------> a whole list of data.
+  if (pyNumOrTone == "") {document.getElementById("ipTA1").value = ""; return;} // to prevent error.
+  //var rgxPttn=/^.*$/gm; // KIV.
+  var rgxPttn=/^.+$/gm; // Use + to exclude empty line, but line consist mainly of blank spaces will still pass through. Will provide user a Repack button to clear all the spaces & empty lines in their input data, if any.
+  var listOfPyArr=pyNumOrTone.match(rgxPttn);
+  //
+  var resultObj = {};
+  var arrOfResultObj = [];
+  //
+  // (1) Get and store results in Aoo (Array of object), arrOfResultObj
+  //
+  for (var i=0;i<listOfPyArr.length;i++) {
+    resultObj = convertPyZy(listOfPyArr[i]);
+	arrOfResultObj.push(resultObj);
+  }
+  //
+  // (2) Format and print results using Aoo (Array of object), arrOfResultObj
+  //
+  // Check any sorting request (do before formatting of results)
+  if (document.getElementById("cbSorting").checked == true) {
+    arrOfResultObj=sortByPyNumResult(arrOfResultObj); // Do sorting (for Array of object, Aoo)
+  }
+  //
+  var fm1s1="", fm1s2="", fm1s3="", htmlTable="";
+  //
+  // Format results
+  for (var n=0;n<arrOfResultObj.length;n++) {
+    fm1s1 += arrOfResultObj[n].pyNumResult+"\n";
+    fm1s2 += arrOfResultObj[n].pyResult+"\n";
+    fm1s3 += arrOfResultObj[n].zyResult+"\n";
+  }
+  htmlTable = formHtmlTable(arrOfResultObj);
+  //
+  // Check and record any ??? (3QMark) cases
+  var found3QMark = false;
+  var pttn3QMark = /\?\?\?/gmi;
+  if (pttn3QMark.test(fm1s3)) {found3QMark = true;} // If there are ???, they will appear at all fm1s1, fm1s2, fm1s3, so just choose fm1s3 to check will do.
+  //
+  // Check any remove of ??? request (do after formatting of results)
+  if (document.getElementById("cbRemove3QMark").checked == true) {
+    if (found3QMark) {
+    fm1s1 = fm1s1.replace(/\?\?\?/gmi,"");
+    fm1s2 = fm1s2.replace(/\?\?\?/gmi,"");
+    fm1s3 = fm1s3.replace(/\?\?\?/gmi,"");
+	htmlTable = htmlTable.replace(/\?\?\?/gmi,"");
+    }
+  }
+  else { // Since there is no remove of ??? request, => Can change & highlight all ??? in htmlTable (if any) to red for ease of checking.
+    if (found3QMark) {
+    htmlTable = htmlTable.replace(/\?\?\?/gmi,"<span style='background-color:red;'>???</span>");
+    }
+  }
+  //
+  // Print formated results
+  document.fm1.S1.value = fm1s1.trim();
+  document.fm1.S2.value = fm1s2.trim();
+  document.fm1.S3.value = fm1s3.trim();
+  //if (found3QMark) { htmlTable = "<p style='color:red;'>NB: There are ??? found, although you might have chosen to remove them.</p>" + htmlTable; }
+  if (found3QMark) { htmlTable = "<p style='color:red;'>注：有发现 ??? 的情况，虽然你可能已选择去除它们。</p>" + htmlTable; }
+  document.getElementById("displayA").innerHTML = htmlTable;
+}
+
+
+function chgZyToPy(xZyWithOrNoTone) {
+  //
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Why use this new method?
+  // This allow us to input a whole list of data for conversion as shown below:
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Input
+  // ㄋㄧˇ ㄇㄣˊ
+  // ㄏㄠˇ ˙ㄇㄚ
+  // ㄏㄠˇ ㄐㄧㄡˇ ㄅㄨˋ ㄐㄧㄢˋ
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Output
+  // ni3 men2      nǐ mén      ㄋㄧˇ ㄇㄣˊ
+  // hao3 ma     hǎo ma     ㄏㄠˇ ˙ㄇㄚ
+  // hao3 jiu3 bu4 jian4       hǎo jiǔ bù jiàn      ㄏㄠˇ ㄐㄧㄡˇ ㄅㄨˋ ㄐㄧㄢˋ
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  //
+  var zyWithOrNoTone = xZyWithOrNoTone.trim(); // NB: zyWithOrNoTone can be in with or no tone mark format.
+  //                                           // NB: zyWithOrNoTone can also be ------> a whole list of data.
+  if (zyWithOrNoTone == "") {document.getElementById("ipTA1").value = ""; return;} // to prevent error.
+  //var rgxPttn=/^.*$/gm; // KIV.
+  var rgxPttn=/^.+$/gm; // Use + to exclude empty line, but line consist mainly of blank spaces will still pass through. Will provide user a Repack button to clear all the spaces & empty lines in their input data, if any.
+  var listOfZyArr=zyWithOrNoTone.match(rgxPttn);
+  //
+  var resultObj = {};
+  var arrOfResultObj = [];
+  //
+  // (1) Get and store results in Aoo (Array of object), arrOfResultObj
+  //
+  for (var i=0;i<listOfZyArr.length;i++) {
+    resultObj = convertZyPy(listOfZyArr[i]);
+	arrOfResultObj.push(resultObj);
+  }
+  //
+  // (2) Format and print results using Aoo (Array of object), arrOfResultObj
+  //
+  // Check any sorting request (do before formatting of results)
+  if (document.getElementById("cbSorting").checked == true) {
+    arrOfResultObj=sortByPyNumResult(arrOfResultObj); // Do sorting (for Array of object, Aoo)
+  }
+  //
+  var fm1s1="", fm1s2="", fm1s3="", htmlTable="";
+  //
+  // Format results
+  for (var n=0;n<arrOfResultObj.length;n++) {
+    fm1s1 += arrOfResultObj[n].pyNumResult+"\n";
+    fm1s2 += arrOfResultObj[n].pyResult+"\n";
+    fm1s3 += arrOfResultObj[n].zyResult+"\n";
+  }
+  htmlTable = formHtmlTable(arrOfResultObj);
+  //
+  // Check and record any ??? (3QMark) cases
+  var found3QMark = false;
+  var pttn3QMark = /\?\?\?/gmi;
+  if (pttn3QMark.test(fm1s3)) {found3QMark = true;} // If there are ???, they will appear at all fm1s1, fm1s2, fm1s3, so just choose fm1s3 to check will do.
+  //
+  // Check any remove of ??? request (do after formatting of results)
+  if (document.getElementById("cbRemove3QMark").checked == true) {
+    if (found3QMark) {
+    fm1s1 = fm1s1.replace(/\?\?\?/gmi,"");
+    fm1s2 = fm1s2.replace(/\?\?\?/gmi,"");
+    fm1s3 = fm1s3.replace(/\?\?\?/gmi,"");
+	htmlTable = htmlTable.replace(/\?\?\?/gmi,"");
+    }
+  }
+  else { // Since there is no remove of ??? request, => Can change & highlight all ??? in htmlTable (if any) to red for ease of checking.
+    if (found3QMark) {
+    htmlTable = htmlTable.replace(/\?\?\?/gmi,"<span style='background-color:red;'>???</span>");
+    }
+  }
+  //
+  // Print formated results
+  document.fm1.S1.value = fm1s1.trim();
+  document.fm1.S2.value = fm1s2.trim();
+  document.fm1.S3.value = fm1s3.trim();
+  //if (found3QMark) { htmlTable = "<p style='color:red;'>NB: There are ??? found, although you might have chosen to remove them.</p>" + htmlTable; }
+  if (found3QMark) { htmlTable = "<p style='color:red;'>注：有发现 ??? 的情况，虽然你可能已选择去除它们。</p>" + htmlTable; }
+  document.getElementById("displayA").innerHTML = htmlTable;
+}
+
+
+function formHtmlTable(xArrOfResultObj) {
+  //
+  // NB: Need to use Aoo variable arrOfResultObj as parameter to this function.
+  //
+  var arrOfResultObj = xArrOfResultObj;
+  var htmlTable = '';
+  htmlTable += '<div style="overflow-x:auto;">';
+  htmlTable += '<table id="myTable" style="width:100%">';
+  //
+    htmlTable += '<tr class="headerRow" style="width:100%;">'; // As this is the header row, so set class="headerRow", it is optional but useful for CSS.
+	  htmlTable += '<th style="width:10%">序号(SN)</th>';
+	  htmlTable += '<th style="width:30%">拼音数(PYNum)</th>';
+	  htmlTable += '<th style="width:30%">拼音(PY)</th>';
+	  htmlTable += '<th style="width:30%">注音(ZY)</th>';
+	htmlTable += '</tr>';
+	//
+	for (var i=0; i<arrOfResultObj.length; i++) {
+	htmlTable += '<tr>';
+	  htmlTable += '<td>'+(i+1)+'</td>';
+	  htmlTable += '<td>'+arrOfResultObj[i].pyNumResult+'</td>';
+	  htmlTable += '<td>'+arrOfResultObj[i].pyResult+'</td>';
+	  htmlTable += '<td>'+arrOfResultObj[i].zyResult+'</td>';
+	htmlTable += '</tr>';
+	}
+  //
+  htmlTable += '</table>';
+  htmlTable += '</div>';
+  return htmlTable;
+}
+
+
+function sortByPyNumResult(xArrOfResultObj) {
+  //
+  // Do sorting (for Array of object, Aoo)
+  // Ref: https://www.w3schools.com/js/tryit.asp?filename=tryjs_array_sort_object2
+  var arrOfResultObj = xArrOfResultObj;
+  arrOfResultObj.sort(function(a, b) {
+  var x = (a.pyNumResult).toLowerCase(); // To compare, must use toLowerCase(). Also need to trim() away any white spaces infront or behind string (if any), else sort result will be affected.
+  var y = (b.pyNumResult).toLowerCase();
+  if (x < y) {return -1;}
+  if (x > y) {return 1;}
+  return 0;
+  });
+  return arrOfResultObj;
+}
+
+
+function rePackInputData() {
+  //
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Why provide this?
+  // This allow us to do the following:
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Input with empty lines and spaces in-between (Before rePackInputData() function)
+  // ni3 men2
+  // 
+  //    hao3       ma
+  //  
+  //      hao3   jiu3      bu4      jian4
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Input with empty lines and spaces in-between (After rePackInputData() function)
+  // ni3 men2
+  // hao3 ma
+  // hao3 jiu3 bu4 jian4  <--- cleared all empty lines and all spaces in-between words reduce to single-space.
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  // Output (After chgPyToZy(xPyNumOrTone) function)
+  // ni3 men2      nǐ mén      ㄋㄧˇ ㄇㄣˊ
+  // hao3 ma     hǎo ma     ㄏㄠˇ ˙ㄇㄚ
+  // hao3 jiu3 bu4 jian4       hǎo jiǔ bù jiàn      ㄏㄠˇ ㄐㄧㄡˇ ㄅㄨˋ ㄐㄧㄢˋ  <--- all spaces in-between are reduced to single-space.
+  // ----------------------------------------------------------------------------------------------------------------------------------
+  //
+  var taElemA1=document.getElementById("ipTA1");
+  //
+  if (taElemA1.value == undefined || taElemA1.value.trim() == "") {return;}
+  //
+  var multiLineTextA1=taElemA1.value.trim();
+  //
+  var rgxPttn=/^.+$/gm; // Use + to exclude empty lines.
+  var linesArrA1=multiLineTextA1.match(rgxPttn);
+  var rePackInputData="";
+  //
+  for (var i=0;i<linesArrA1.length;i++) {
+    if (linesArrA1[i].trim() == "") {continue;}
+	rePackInputData += linesArrA1[i].trim() + "\n";
+  }
+  //
+  // To replace one or more spaces between words to one space between words.
+  // eg: Change "你有空吗   ni3      you3       kong1    ma" ---------------> "你有空吗 ni3 you3 kong1 ma".
+  //taElemA1.value=rePackInputData.replace(/[\s]+/gmi," "); // Use [\s]+ will also replace all \n, reason not know, => failed.
+  taElemA1.value=rePackInputData.replace(/[ ]+/gmi," ");    // Use [ ]+ to replace one or more spaces between words to one space between words, => Workable. 
+  alert("已经重排与清除输入的资料中可能存在的空白词条。Has repacked and cleared any empty lines existed in the input data.");
+}
+
+
+function shiftFirstWordToLast() {
+  //
+  // This function will do the following for any sentences of words separated by " ":
+  //
+  // The idea is simple:
+  //
+  // (1) Use indexOf(" ") to find pos, the position of first " ", and use it to separate the first word from the rest of words of the sentence.
+  //     => pos = sentence.indexOf(" ")
+  //     => First word of the sentence = sentence.substring(0,pos)
+  //     => The rest of words of the sentence = sentence.substring(pos+1)
+  //
+  // (2) With the first word and the rest of words of the sentence separated, we can shift and re-combine them as shown:
+  //     => shiftedResult = The rest of words of the sentence + " " + First word of the sentence
+  //     => shiftedResult = sentence.substring(pos+1) + " " + sentence.substring(0,pos)
+  //     => This function has Shifted First Word To Last.
+  //
+  // NB1: Each word must separate by only a single " ". ( => Better use function rePackInputData() to ensure this. )
+  // NB2: 我们约定 is a single word, it is different from 我们 约定 (which are 2 words) or 我 们 约 定 (which are 4 words).
+  // NB3: Multiple activation of shiftFirstWordToLast() is equal to "ROTATE each word in the sentence from front to back, one by one".
+  /*
+  我们约定 wo3 men2 yue4 ding4  <--- Original
+  去跑步 qu4 pao3 bu4
+  //
+  wo3 men2 yue4 ding4 我们约定  <--- 1st shift (我们约定)
+  qu4 pao3 bu4 去跑步
+  //
+  men2 yue4 ding4 我们约定 wo3  <--- 2nd shift (wo3)
+  pao3 bu4 去跑步 qu4
+  //
+  yue4 ding4 我们约定 wo3 men2  <--- 3rd shift (men2)
+  bu4 去跑步 qu4 pao3
+  //
+  ding4 我们约定 wo3 men2 yue4  <--- 4th shift (yue4)
+  去跑步 qu4 pao3 bu4
+  //
+  我们约定 wo3 men2 yue4 ding4  <--- 5th shift (ding4)
+  qu4 pao3 bu4 去跑步
+  //
+  wo3 men2 yue4 ding4 我们约定  <--- 6th shift (我们约定)
+  pao3 bu4 去跑步 qu4
+  //
+  ... etc.
+  ... etc.
+  */
+  //
+  var taElemA1=document.getElementById("ipTA1");
+  //
+  if (taElemA1.value == undefined || taElemA1.value.trim() == "") {return;}
+  //
+  var multiLineTextA1=taElemA1.value.trim();               // This function can process list or multiline of sentences.
+  //
+  var rgxPttn=/^.+$/gm; // Use + to exclude empty lines.
+  var linesArrA1=multiLineTextA1.match(rgxPttn);           // Put list or multiline of sentences into linesArrA1 (array).
+  var shiftedResult="";
+  //
+  var pos=-1;
+  for (var i=0;i<linesArrA1.length;i++) {                  // Use for-loop to loop through each sentence in linesArrA1 (array).
+    if (linesArrA1[i].trim() == "") {continue;}
+	pos=linesArrA1[i].indexOf(" ");
+	if (pos!=-1) {
+	  shiftedResult += linesArrA1[i].substring(pos+1) + " " + linesArrA1[i].substring(0,pos) + "\n";
+	}
+	else {
+	  shiftedResult += linesArrA1[i].trim() + "\n";        // This will take care of one word sentence, => no shift needed.
+	}
+  }
+  taElemA1.value=shiftedResult.trim();                     // Trim away last "\n".
+}
+
+
+function shiftLastWordToFirst() {
+  //
+  // This function will do the following for any sentences of words separated by " ":
+  //
+  // The idea is simple:
+  //
+  // (1) Use lastIndexOf(" ") to find pos, the position of last " ", and use it to separate the last word from the rest of words of the sentence.
+  //     => pos = sentence.lastIndexOf(" ")
+  //     => Last word of the sentence = sentence.substring(pos+1)
+  //     => The rest of words of the sentence = sentence.substring(0,pos)
+  //
+  // (2) With the last word and the rest of words of the sentence separated, we can shift and re-combine them as shown:
+  //     => shiftedResult = Last word of the sentence + " " + The rest of words of the sentence
+  //     => shiftedResult = sentence.substring(pos+1) + " " + sentence.substring(0,pos)
+  //     => This function has Shifted Last Word To First.
+  //
+  // NB1: Each word must separate by only a single " ". ( => Better use function rePackInputData() to ensure this. )
+  // NB2: 好久不见 is a single word, it is different from 好久 不见 (which are 2 words) or 好 久 不 见 (which are 4 words).
+  // NB3: Multiple activation of shiftLastWordToFirst() is equal to "ROTATE each word in the sentence from back to front, one by one".
+  /*
+  hao3 jiu3 bu4 jian4 好久不见  <--- Original
+  ni3 hao3 ma 你好吗
+  //
+  好久不见 hao3 jiu3 bu4 jian4  <--- 1st shift (好久不见)
+  你好吗 ni3 hao3 ma
+  //
+  jian4 好久不见 hao3 jiu3 bu4  <--- 2nd shift (jian4)
+  ma 你好吗 ni3 hao3
+  //
+  bu4 jian4 好久不见 hao3 jiu3  <--- 3rd shift (bu4)
+  hao3 ma 你好吗 ni3
+  //
+  jiu3 bu4 jian4 好久不见 hao3  <--- 4th shift (jiu3)
+  ni3 hao3 ma 你好吗
+  //
+  hao3 jiu3 bu4 jian4 好久不见  <--- 5th shift (hao3)
+  你好吗 ni3 hao3 ma
+  //
+  好久不见 hao3 jiu3 bu4 jian4  <--- 6th shift (好久不见)
+  ma 你好吗 ni3 hao3
+  //
+  ... etc.
+  ... etc.
+  */
+  //
+  var taElemA1=document.getElementById("ipTA1");
+  //
+  if (taElemA1.value == undefined || taElemA1.value.trim() == "") {return;}
+  //
+  var multiLineTextA1=taElemA1.value.trim();               // This function can process list or multiline of sentences.
+  //
+  var rgxPttn=/^.+$/gm; // Use + to exclude empty lines.
+  var linesArrA1=multiLineTextA1.match(rgxPttn);           // Put list or multiline of sentences into linesArrA1 (array).
+  var shiftedResult="";
+  //
+  var pos=-1;
+  for (var i=0;i<linesArrA1.length;i++) {                  // Use for-loop to loop through each sentence in linesArrA1 (array).
+    if (linesArrA1[i].trim() == "") {continue;}
+	pos=linesArrA1[i].lastIndexOf(" ");
+	if (pos!=-1) {
+	  shiftedResult += linesArrA1[i].substring(pos+1) + " " + linesArrA1[i].substring(0,pos) + "\n";
+	}
+	else {
+	  shiftedResult += linesArrA1[i].trim() + "\n";        // This will take care of one word sentence, => no shift needed.
+	}
+  }
+  taElemA1.value=shiftedResult.trim();                     // Trim away last "\n".
+}
+
+
+function inputBpmf(bpmfSymbol) {
+  //
+  // Copied and Edited from: cursorCaretPos.html
+  // Ref-1: https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/setSelectionRange
+  //
+  var addTxt = bpmfSymbol; // <--- NB: We will use var.
+  //
+  // For <textarea> element: (TextArea input type)
+  const taInput = document.getElementById('ipTA1');
+  //
+  taInput.focus();
+  var caretPos = taInput.selectionStart; // Get caretPos.
+  var currTxt = taInput.value;
+  var lenOfCurrTxt = taInput.value.length;
+  //
+  // Check caretPos so as to addTxt accordingly:
+  if (caretPos == lenOfCurrTxt) {taInput.value = currTxt + addTxt;} // <--- caretPos at end of currTxt, => just addTxt to the end of currTxt.
+  else {taInput.value = currTxt.substring(0,caretPos) + addTxt + currTxt.substring(caretPos,lenOfCurrTxt);} // <--- caretPos not at end of currTxt, it is within
+  //                                                                                                        //      currTxt, => use substring method to split the
+  //                                                                                                        //      currTxt at caretPos & insert addTxt within it.
+  // Set the new caretPos after addTxt:
+  //taInput.selectionStart = caretPos + addTxt.length; // <--- Can use this, but it will show highlight from selectionStart (because it start to select).
+  taInput.selectionEnd = caretPos + addTxt.length;     // <--- Use this, it will not show the highlight as it uses selectionEnd (because it end to select).
+}
+
+
+function onOffChnFont() {
+//
+// Ref: https://www.w3schools.com/howto/howto_js_active_element.asp
+// How TO - Add Active Class to Current Element
+//
+// To get all elements with classname "engFont".
+var engFontElem = document.getElementsByClassName("engFont");
+//
+// To loop through all elements with classname "engFont" and add or replace " chnFont" accordingly.
+for (var i = 0; i < engFontElem.length; i++)
+  {
+  if (engFontElem[i].className.indexOf("chnFont") == -1) // Check if chnFont == -1, => not added, => need to add chnFont, else need not add (to prevent multiple chnFont being added).
+    {
+    engFontElem[i].className += " chnFont";
+    } 
+  else
+    { 
+    engFontElem[i].className = engFontElem[i].className.replace(" chnFont", "");
+    }
+  }
+}
+
+
+function onOffZyInput() {
+  var elemBpmf=document.getElementById("elemBpmf_div");
+  //
+  if (elemBpmf.style.display=="block") {elemBpmf.style.display="none";}
+  else {elemBpmf.style.display="block";}
+}
+
+
+function chgFontSzBpmf() {
+  var elemBpmf=document.getElementById("elemBpmf_div");
+  //
+  var fontSzVal = parseFloat(elemBpmf.style.fontSize); // As we have set <div id="elemBpmf_div" style="...;font-size:16px;..."></div>, => fontSzVal = 16px.
+  if (fontSzVal < 41) // Change from 16px to 41px.
+    {
+	elemBpmf.style.fontSize = (fontSzVal+5)+"px"; // 6 font sizes available: 16px, 21px, 26px, 31px, 36px and 41px.
+	//
+	// Change the fontSzLabelBpmf
+    var str = document.getElementById("fontSzLabelBpmf").innerHTML;
+    str = str.substring(str.length - 1, str.length); // Extract only the last character in str.
+    str = parseInt(str) + 1; // parseInt it and add 1.
+    //document.getElementById("fontSzLabelBpmf").innerHTML = "字体 Font " + str;
+    // Ref: https://www.w3schools.com/charsets/ref_utf_dingbats.asp Tested and changed (字体 Font 1) to a (pencil icon denoted as &#9998;1 below). (NB: &#9998; = LOWER RIGHT PENCIL icon)
+    document.getElementById("fontSzLabelBpmf").innerHTML = "&#9998;" + str;
+    }
+  else 
+    {
+    elemBpmf.style.fontSize = "16px"; // reset fontSize
+    //document.getElementById("fontSzLabelBpmf").innerHTML = "字体 Font 1"; // reset fontSzLabelBpmf
+    // Ref: https://www.w3schools.com/charsets/ref_utf_dingbats.asp Tested and changed (字体 Font 1) to a (pencil icon denoted as &#9998;1 below).
+    document.getElementById("fontSzLabelBpmf").innerHTML = "&#9998;1"; // reset fontSzLabelBpmf
+    }
+}
+
+
+function onOffAboutPg() {
+  var eleAbout=document.getElementById("aboutPg");
+  //
+  if (eleAbout.style.display=="block") {eleAbout.style.display="none";window.location.href="#";}  // # => jump to top of page.
+  else {eleAbout.style.display="block";window.location.href="#aboutPg";}                          // #aboutPg => jump to aboutPg.
+  //
+  // Ref1: https://www.w3schools.com/tags/att_a_href.asp
+  // Ref2: https://www.w3schools.com/jsref/prop_loc_href.asp
+  // Ref3: https://www.w3schools.com/howto/howto_js_redirect_webpage.asp
+}
+
+
+function clearConvertedResult() {
+  //document.getElementById("ipTA1").value = ""; // Will not clear the input data => to prevent accidentedly deletion of user input data.
+  document.fm1.S1.value = "";
+  document.fm1.S2.value = "";
+  document.fm1.S3.value = "";
+  document.getElementById("displayA").innerHTML = "转换的结果将用HTML表格呈现于此。";
+  //document.getElementById("displayA").innerHTML = "Will use HTML Table to display the converted results here."; // 24/Sep/2023 edited to add English version.
+}
+
+
+function clearInputData() { // Clear input data => to delete user input data.
+  //KIV---document.getElementById("ipTA1").value = "";
+  // Better alert the user to decide:
+  if (document.getElementById("ipTA1").value != "") {
+    var ans = confirm ("This will clear the existing data in the input area, ok?\n这将清除现有在输入栏中的资料，可以吗？\n\nTo clear => Press [OK].\n要清除 => 按 [OK]。 \n\nTo abort => Press [Cancel]\n要放弃 => 按 [Cancel]。");
+    if (ans == true) {document.getElementById("ipTA1").value = "";} // re-set.
+    else {alert("Action aborted!\n已经放弃相关行动！");return;}
+  }
+}
+
+
+function onOffMoreMenu() {
+  var elemMoreMenu=document.getElementById("moreMenu");
+  //
+  if (elemMoreMenu.style.display=="block") {elemMoreMenu.style.display="none";}
+  else {elemMoreMenu.style.display="block";}
+}
+
+
+function onOffFm1Display() { // To on or off display of TextAreas S1, S2, S3 in form fm1 for converted results.
+  var fm1S1S2S3=document.getElementById("fm1");
+  //
+  if (fm1S1S2S3.style.display=="block") {fm1S1S2S3.style.display="none";}
+  else {fm1S1S2S3.style.display="block";}
+}
+
+
+function selectPyLightToneNum() {
+  var sel=document.getElementById("selPyLightToneNum").value; // Better use option value/name method.
+  switch(sel)
+	{
+	case "selPyLtNumTo_nil": getAndChgPyLightToneNum(document.getElementById("inputPyNumList"),"nil");break;
+	case "selPyLtNumTo_0": getAndChgPyLightToneNum(document.getElementById("inputPyNumList"),"0");break;
+	case "selPyLtNumTo_5": getAndChgPyLightToneNum(document.getElementById("inputPyNumList"),"5");break;
+	}
+}
+
+
+function getAndChgPyLightToneNum(pyNumList,lightToneNum) { // pyNumList can be one line of pyNum or multi-lines of pyNum.
+  //
+  var taElemA1=pyNumList; // NB: In this usage, pyNumList is input from document.getElementById("inputPyNumList").
+  var ltNum=lightToneNum;
+  //
+  var taElemA2=document.getElementById("outputPyNumList");  // Textarea for output changedPyNumList.
+  //
+  if (taElemA1.value == undefined || taElemA1.value.trim() == "") {return;}
+  //
+  var multiLineTextA1=taElemA1.value.trim();
+  //
+  var rgxPttn=/^.+$/gm; // Use + to exclude empty lines.
+  var linesArrA1=multiLineTextA1.match(rgxPttn); // Convert multiLineTextA1 into array so each line of pyNumList can be processed using for-loop.
+  //
+  var changedPyNumList="";
+  //
+  // The following for-loop will change pyNumList to changedPyNumList:
+  for (var i=0;i<linesArrA1.length;i++) {
+    if (linesArrA1[i].trim() == "") {continue;}
+    else {changedPyNumList += chgPyLightToneNum(linesArrA1[i].trim(),ltNum) + "\n";} // Change and form the changedPyNumList.
+  }
+  //
+  taElemA2.value=changedPyNumList.trim(); // Output changedPyNumList.
+}
+
+
+function chgPyLightToneNum(oneLineOfPyNum,lightToneNum) { // lightToneNum has 3 value, => "nil", "0" and "5".
+//
+// NB1: This function is only for pyNum (i.e. pin yin with or without tone number, a a0 a1 a2 a3 a4 a5, not for tone symbol, ā á ǎ à, or English words).
+//      => If user input tone symbol, ā á ǎ à, or English words, this function is not designed to block them, => it will process them and give wrong outcome.
+//
+// NB2: It is for users to change the light-tone number of pyNum in 3 forms, i.e. nil, 0 or 5, => for pin yin a, it can be a or a0 or a5.
+//
+var pyWithNum=oneLineOfPyNum;
+var useLgToneNum=lightToneNum; // useLgToneNum = use light-tone number, lightToneNum can has 3 possible value, => "nil", or "0", or "5".
+//
+var pyToneNum="012345"; // pin yin tone number can be 1, 2, 3, 4, or for light-tone 0 or 5.
+var matchedToneNum=-1; // set
+var orgPyNum="";
+var newPyNum="";
+//
+var ippyNum="Test"+" "+pyWithNum.toLowerCase(); // as this method can only take pyNum & py in lower case, hence need to do this conversion.
+//
+// The following replace statement will take away any extra spaces in pyNum entered.
+//
+ippyNum=ippyNum.replace(/[\s]+/g," "); // if there are continual repeating spaces, reduce them to one space.
+//
+// Sample-1:
+// Before replace: a a0 a1 a2    a3 a4  a5   ma1 ma
+// After replace: a a0 a1 a2 a3 a4 a5 ma1 ma
+//
+//var pyzyArr=pyzy.split(" "); // IMPT: This array method require (1) data entered with a space in between, (2) no carriage-return allowed => one line entry only.
+var ippyNumArr=ippyNum.split(/[\s]+/); // Using string " ", it can't handle multiple-spaces in front, behind or in between, this Regular Expression method can.
+//									   // Using Regular Expression /[\s]+/, allow us the flexibility of ignoring multiple whitespace or delimiter characters.
+//
+// What will the above statement do to (says) Sample-1:
+//
+// (1) The ippyNumArr=ippyNum.split(/[\s]+/) statement will use Every single-space in Sample-1 as de-limiter.
+// (2) Hence Sample-1 will become an Array, ippyNumArr, with 9 elements:
+//
+//			Sample-1:
+//			a a0 a1 a2 a3 a4 a5 ma1 ma
+//			will become
+//
+//			ippyNumArr[0]="a"
+//			ippyNumArr[1]="a0"
+//			ippyNumArr[2]="a1"
+//			ippyNumArr[3]="a2"
+//			ippyNumArr[4]="a3"
+//			ippyNumArr[5]="a4"
+//			ippyNumArr[6]="a5"
+//			ippyNumArr[7]="ma1"
+//			ippyNumArr[8]="ma"
+//
+// We will use two variables hasEngAlphabet and engPattern to handle the non-pinyin characters or symbols, but as long as the non-pinyin character contains any English alphabet, the program will treat it as a pinyin-character, so its ability to filter-out non-pinyin characters and symbols is limited.
+var hasEngAlphabet=false;
+var engPattern=/[a-zA-Z]/; // Two workable methods: /[a-zA-Z]/, or /[a-zA-Z]+/.  Three not workable methods: /[a-zA-Z]/g, /[a-zA-Z]+/g, or using /a-zA-Z/.
+//
+for (var i=1;i<ippyNumArr.length;i++) {
+	//
+	orgPyNum += ippyNumArr[i] + " "; // Record the original data before we made any possible changes later.
+	//
+	hasEngAlphabet=engPattern.test(ippyNumArr[i]); // Check to see ippyNumArr[i] contains any a-z or A-Z character or not.
+	if (!hasEngAlphabet) // As pin yin will contain English Alphabet, thus those without a-z or A-Z characters (including pure numbers) will fall into the following if-statement.
+		{
+		newPyNum += ippyNumArr[i] + " "; // Just record those non a-z or non A-Z characters.
+		continue;                        // => If besides pyNum, user also input tone symbol, ā á ǎ à, or English words, this function is not designed to block them,
+		}                                // => it will process them and give wrong outcome.
+	//
+	matchedToneNum=pyToneNum.indexOf(ippyNumArr[i].charAt(ippyNumArr[i].length-1)); // Checked the last character of ippyNumArr[i] with pyToneNum to get matchedToneNum, if matchedToneNum not equal to -1, it will correspond to pyToneNum's 0, 1, 2, 3, 4, or 5.
+	//
+	if (matchedToneNum==-1)
+		{
+		if (useLgToneNum=="nil") {} // Just leave it as it is.
+		if (useLgToneNum=="0") {ippyNumArr[i]=ippyNumArr[i]+"0";}
+		if (useLgToneNum=="5") {ippyNumArr[i]=ippyNumArr[i]+"5";}
+		}
+	else
+		{
+		if (matchedToneNum==0 || matchedToneNum==5)
+			{
+			if (matchedToneNum==0)
+				{
+				if (useLgToneNum=="nil") {ippyNumArr[i]=ippyNumArr[i].substring(0,ippyNumArr[i].length-1);}
+				if (useLgToneNum=="0") {} // Just leave it as it is.
+				if (useLgToneNum=="5") {ippyNumArr[i]=ippyNumArr[i].substring(0,ippyNumArr[i].length-1)+"5";}
+				}
+			else
+				{
+				if (useLgToneNum=="nil") {ippyNumArr[i]=ippyNumArr[i].substring(0,ippyNumArr[i].length-1);}
+				if (useLgToneNum=="0") {ippyNumArr[i]=ippyNumArr[i].substring(0,ippyNumArr[i].length-1)+"0";}
+				if (useLgToneNum=="5") {} // Just leave it as it is.
+				}
+			}
+		}
+	newPyNum += ippyNumArr[i] + " "; // Record the new data.
+	}
+return newPyNum.trim();
+}
+
+
+</script>
+
+<style>
+a:link {color:blue; background-color:transparent; text-decoration:none;}
+a:visited {color:blue; background-color:transparent; text-decoration:none;}
+a:hover {color:red; background-color:transparent; text-decoration:underline;}
+/* The following is for < span > within < span > structure, => Use span span:hover {...} CSS to style. */
+span span:hover {color:red; background-color:transparent; text-decoration:underline; cursor:pointer;}
+.txt1 {text-align:justify; color:green;}
+</style>
+
+</head>
+<body class="engFont">
+
+<h2 style="text-align:center;font-size:20px;color:magenta;text-decoration:underline;">拼音注音转换<a href="pyzyConversionEngNew.html"> (英)</a><br />Pinyin Zhuyin Conversion<br /></h2>
+
+<form id="ipFm1" name="ipFm1" style="text-align:center;">
+<input type="button" value="拼音 ---> 注音" name="btnPyToZy" id="btnPyToZy" onclick="chgPyToZy(document.ipFm1.ipTA1.value)">
+<input type="button" value="注音 ---> 拼音" name="btnZyToPy" id="btnZyToPy" onclick="chgZyToPy(document.ipFm1.ipTA1.value)">
+<br />
+<span style="font-size:15px;color:green;background-color:WhiteSmoke;">排序</span><input type="checkbox" id="cbSorting">
+<span style="font-size:15px;color:red;background-color:WhiteSmoke;">去除???</span><input type="checkbox" id="cbRemove3QMark">
+<a href="javascript:void(0);" onclick="clearConvertedResult()" title="清空转换的结果 Clear Converted Results" style="background-color:WhiteSmoke;">清空结果</a>
+<br />
+<input type="button" value="其他菜单项目&#9851;" name="btnOnOffMoreMenu" id="btnOnOffMoreMenu" onclick="onOffMoreMenu()" style="color:blue;">
+<input type="button" value="注音输入&#9851;" name="btnOnOffZyIp" id="btnOnOffZyIp" onclick="onOffZyInput()" style="color:blue;"> <!-- Ref: https://www.w3schools.com/charsets/ref_utf_symbols.asp -->
+<input type="button" value="+ &#9851;" name="btnOnOffFm1" id="btnOnOffFm1" onclick="onOffFm1Display()" title="用TextArea呈现转换的结果 Display Converted Results in TextArea" style="color:blue;">
+<br />
+<span id="moreMenu" style="display:none;"> <!-- for function onOffMoreMenu() to switch on and off the menu enclosed within this <span></span>. -->
+<input type="button" value="音节表与选项&#9851;" name="btnToneTable" id="btnToneTable" onclick="onOffEditToneTable()">
+<input type="button" value="关于&#9851;" name="btnAboutPg" id="btnAboutPg" onclick="onOffAboutPg()">
+<br />
+<input type="button" value="重排输入的资料" name="btnRePack" id="btnRePack" onclick="rePackInputData()">
+<input type="button" value="x" name="btnClearIpData" onclick="clearInputData()" title="清空输入的资料 Clear Input Data">
+<input type="button" value="注音ㄧ一 转换" name="btnToggleOneZY2" id="btnToggleOneZY2" onclick="onOffChnFont()">
+<br />
+<input type="button" value="移首段字词去尾端" name="btnShiftFirstToLast" id="btnShiftFirstToLast" onclick="shiftFirstWordToLast()">
+<input type="button" value="移尾段字词去前端" name="btnShiftLastToFirst" id="btnShiftLastToFirst" onclick="shiftLastWordToFirst()">
+<br />
+</span>
+<div id="elemBpmf_div" style="width:100%;text-align:centre;display:none;font-size:16px;color:#0000FF;">
+   <table style="width:100%;text-align:center;">
+      <tr>
+         <td>
+<span style="background-color: #FFFF00">
+<span onclick="inputBpmf('ㄅ');" title="声母/唇音：ㄅ，b，玻">ㄅ</span> <!-- Ref: https://zh.wikipedia.org/zh-sg/注音符號 or https://zh.wikipedia.org/wiki/注音符號 -->
+<span onclick="inputBpmf('ㄆ');" title="声母/唇音：ㄆ，p，坡">ㄆ</span> <!-- Change all <a> to <span>, => Use span span:hover {...} CSS to style. -->
+<span onclick="inputBpmf('ㄇ');" title="声母/唇音：ㄇ，m，摸">ㄇ</span>
+<span onclick="inputBpmf('ㄈ');" title="声母/唇音：ㄈ，f，佛">ㄈ</span></span> <!-- NB: Is is a <span> within <span> structure. -->
+<span style="background-color: #00FF00">
+<span onclick="inputBpmf('ㄉ');" title="声母/舌尖中音：ㄉ，d，得">ㄉ</span>
+<span onclick="inputBpmf('ㄊ');" title="声母/舌尖中音：ㄊ，t，特">ㄊ</span>
+<span onclick="inputBpmf('ㄋ');" title="声母/舌尖中音：ㄋ，n，讷">ㄋ</span>
+<span onclick="inputBpmf('ㄌ');" title="声母/舌尖中音：ㄌ，l，勒">ㄌ</span></span>
+<span style="background-color: #FFFF00">
+<span onclick="inputBpmf('ㄍ');" title="声母/舌根音：ㄍ，g，哥">ㄍ</span>
+<span onclick="inputBpmf('ㄎ');" title="声母/舌根音：ㄎ，k，科">ㄎ</span>
+<span onclick="inputBpmf('ㄏ');" title="声母/舌根音：ㄏ，h，喝">ㄏ</span></span>
+<span style="background-color: #00FF00">
+<span onclick="inputBpmf('ㄐ');" title="声母/舌面前音：ㄐ，j，基">ㄐ</span>
+<span onclick="inputBpmf('ㄑ');" title="声母/舌面前音：ㄑ，q，欺">ㄑ</span>
+<span onclick="inputBpmf('ㄒ');" title="声母/舌面前音：ㄒ，x，希">ㄒ</span></span>
+<span style="background-color: #FFFF00">
+<span onclick="inputBpmf('ㄓ');" title="声母/翘舌音：ㄓ，zh，知">ㄓ</span>
+<span onclick="inputBpmf('ㄔ');" title="声母/翘舌音：ㄔ，ch，蚩">ㄔ</span>
+<span onclick="inputBpmf('ㄕ');" title="声母/翘舌音：ㄕ，sh，诗">ㄕ</span>
+<span onclick="inputBpmf('ㄖ');" title="声母/翘舌音：ㄖ，r，日">ㄖ</span></span>
+<span style="background-color: #00FF00">
+<span onclick="inputBpmf('ㄗ');" title="声母/平舌音：ㄗ，z，资">ㄗ</span>
+<span onclick="inputBpmf('ㄘ');" title="声母/平舌音：ㄘ，c，雌">ㄘ</span>
+<span onclick="inputBpmf('ㄙ');" title="声母/平舌音：ㄙ，s，思">ㄙ</span></span>
+<span style="background-color: #C0C0C0">
+<span onclick="inputBpmf('ㄧ');" title="介音/单韵母：ㄧ，i，衣">ㄧ</span>
+<span onclick="inputBpmf('ㄨ');" title="介音/单韵母：ㄨ，u，乌">ㄨ</span>
+<span onclick="inputBpmf('ㄩ');" title="介音/单韵母：ㄩ，ü，迂">ㄩ</span></span>
+<span style="background-color: #00FFFF">
+<span onclick="inputBpmf('ㄚ');" title="韵母/单韵母：ㄚ，a，啊">ㄚ</span>
+<span onclick="inputBpmf('ㄛ');" title="韵母/单韵母：ㄛ，o，喔">ㄛ</span>
+<span onclick="inputBpmf('ㄜ');" title="韵母/单韵母：ㄜ，e，鹅">ㄜ</span>
+<span onclick="inputBpmf('ㄝ');" title="韵母/单韵母：ㄝ，ê，air">ㄝ</span></span> <!-- NB: ê sound like "air", Ref: https://zh.wikipedia.org/zh-sg/注音符號 -->
+<span style="background-color: #00FFFF">
+<span onclick="inputBpmf('ㄞ');" title="韵母/复韵母：ㄞ，ai，哀">ㄞ</span>
+<span onclick="inputBpmf('ㄟ');" title="韵母/复韵母：ㄟ，ei，欸">ㄟ</span>
+<span onclick="inputBpmf('ㄠ');" title="韵母/复韵母：ㄠ，ao，熬">ㄠ</span>
+<span onclick="inputBpmf('ㄡ');" title="韵母/复韵母：ㄡ，ou，欧">ㄡ</span></span>
+<span style="background-color: #00FFFF">
+<span onclick="inputBpmf('ㄢ');" title="韵母/鼻韵母：ㄢ，an，安">ㄢ</span>
+<span onclick="inputBpmf('ㄣ');" title="韵母/鼻韵母：ㄣ，en，恩">ㄣ</span>
+<span onclick="inputBpmf('ㄤ');" title="韵母/鼻韵母：ㄤ，ang，昂">ㄤ</span>
+<span onclick="inputBpmf('ㄥ');" title="韵母/鼻韵母：ㄥ，eng，享的韵母">ㄥ</span></span>
+<span style="background-color: #00FFFF">
+<span onclick="inputBpmf('ㄦ');" title="韵母/卷舌韵母：ㄦ，er，儿">ㄦ</span></span>
+<span style="background-color: #FFCC99">
+<span onclick="inputBpmf('ˉ');" title="声调：ˉ，1，阴平">1ˉ</span>
+<span onclick="inputBpmf('ˊ');" title="声调：ˊ，2，阳平">2ˊ</span>
+<span onclick="inputBpmf('ˇ');" title="声调：ˇ，3，上声">3ˇ</span>
+<span onclick="inputBpmf('ˋ');" title="声调：ˋ，4，去声">4ˋ</span>
+<span onclick="inputBpmf('˙');" title="声调：˙，5，轻声">5˙</span></span>
+<span style="background-color: #C0C0C0">
+<span onclick="inputBpmf(' ');" title="空格：□，加一个空格">□</span></span>
+<a href="javascript:void(0);" onclick="chgFontSzBpmf()" id="fontSzLabelBpmf" title="字体 Font Size" style="font-size:16px;">✎1</a>
+         </td>
+      </tr>
+   </table>
+</div>
+<br />
+<textarea class="engFont" name="ipTA1" id="ipTA1" placeholder="请输入要转换的拼音符号 (例如: ni3 hao3 ma 或 nǐ hǎo ma) 或是 注音符号 (例如: ㄋㄧˇ ㄏㄠˇ ˙ㄇㄚ)。" style="width:100%;height:150px;"></textarea>
+</form>
+
+<form id="fm1" name="fm1" style="text-align:center;padding:25px 0 0 0;display:none;">
+<textarea class="engFont" name="S1" id="S1" placeholder="转换的结果(pyNumResult)将呈现于此。" style="width:33%;height:150px;float:left;">
+</textarea>
+<textarea class="engFont" name="S2" id="S2" placeholder="转换的结果(pyResult)将呈现于此。" style="width:34%;height:150px;float:left;">
+</textarea>
+<textarea class="engFont" name="S3" id="S3" placeholder="转换的结果(zyResult)将呈现于此。" style="width:33%;height:150px;float:left;">
+</textarea>
+</form>
+
+<p style="clear:left;"><br /></p>
+
+<div id="displayA" style="background-color:lightyellow;text-align:center;">转换的结果将用HTML表格呈现于此。</div>
+
+<br />
+
+<div id="aboutPg" style="display:block;">
+
+<h3 style="font-size:18px;color:magenta;text-decoration:underline;">关于 (About) <input type="button" value="x" name="btnX" onclick="onOffAboutPg()"></h3>
+
+<p class="txt1">(1) 这个程序让使用者输入拼音（eg1, eg3）或注音（eg2），然后进行拼音注音转换；不过请注意，对于所输入的中文字，这个程序没有为它们进行转换或添加拼音注音的功能（eg4, eg5, eg6）。
+</p>
+
+<p class="txt1">参考 Ref：
+<a href="#">
+<input type="button" value="eg1" name="btnEg1" onclick="document.getElementById('ipTA1').value=document.getElementById('eg1').value">
+<input type="button" value="eg2" name="btnEg2" onclick="document.getElementById('ipTA1').value=document.getElementById('eg2').value">
+<input type="button" value="eg3" name="btnEg3" onclick="document.getElementById('ipTA1').value=document.getElementById('eg3').value">
+<input type="button" value="eg4" name="btnEg4" onclick="document.getElementById('ipTA1').value=document.getElementById('eg4').value">
+<input type="button" value="eg5" name="btnEg5" onclick="document.getElementById('ipTA1').value=document.getElementById('eg5').value">
+<input type="button" value="eg6" name="btnEg6" onclick="document.getElementById('ipTA1').value=document.getElementById('eg6').value">
+</a>
+</p>
+
+<br />
+
+<p class="txt1">(2) <span style="color:orange;">本程序是使用拼音与注音<span style="font-weight:bold;">一一</span>对应的音节表做为转换的方法</span>，因此只有在音节表中有记录的拼音或注音音节才能被成功转换。（无法转换的将会被添加<span style="background-color:red;">???</span>做标记以便提醒使用者）
+</p>
+
+<p class="txt1">参考 Ref：
+<a href="#fmToneTable"><input type="button" value="音节表与选项 ToneTable&Choices&#9851;" name="btnToneTable" id="btnToneTable" onclick="onOffEditToneTable()"></a>
+请看 [ 汉字华语拼音音节表 ] 的部分。
+</p>
+
+<br />
+
+<p class="txt1">(3) <span style="color:orange;">如何输入拼音（默认输入法）</span>：(a) 每个输入的音节之间必须以空白隔开，(b) 每个音节的声调则以：<span style="color:red;">[ 不输入 ]</span>，[ 1 ]，[ 2 ]，[ 3 ]，[ 4 ]，[ 5 ] 分别代表 <span style="color:red;">[ 轻声 ]</span>，[ 第1声 ]，[ 第2声 ]，[ 第3声 ]，[ 第4声 ]，[ 轻声 ]；其中 [ 不输入 ] 和 [ 5 ] 都是代表轻声。
+</p>
+
+<p class="txt1">例如：吗<span style="color:red;">[ ma ]</span>，妈[ ma1 ]，麻[ ma2 ]，马[ ma3 ]，骂[ ma4 ]，吗[ ma5 ]
+<br />
+<br />=> 吗<span style="color:red;">[ ma ]</span>，妈[ mā ]，麻[ má ]，马[ mǎ ]，骂[ mà ]，吗[ ma ]
+<br />
+<br />注：<span style="color:orange;">常会用到的拼音符号 ü</span> ，除了 ü 本身，也可以用 u: ， v ， yu 做代表，例如：女[ nü ， nu: ， nv ， nyu ]，略[ lüe ， lu:e ， lve ， lyue ]。
+</p>
+
+<br />
+
+<p class="txt1">(4) <span style="color:orange;">如何输入注音（默认输入法）</span>：(a) 每个输入的音节之间必须以空白隔开，(b) 每个音节的声调则以：[ ˙ ]，<span style="color:red;">[ 不输入 ]</span>，[ ˊ ]，[ ˇ ]，[ ˋ ] 分别代表 [ 轻声 ]，<span style="color:red;">[ 第1声 ]</span>，[ 第2声 ]，[ 第3声 ]，[ 第4声 ]；其中 [ ˙ ] 代表轻声，而且必须标注在音节左边，[ 不输入 ] 则是代表 [ 第1声 ] 。
+</p>
+
+<p class="txt1">例如：吗[ ˙ㄇㄚ ]，妈<span style="color:red;">[ ㄇㄚ ]</span>，麻[ ㄇㄚˊ ]，马[ ㄇㄚˇ ]，骂[ ㄇㄚˋ ]
+<br />
+<br />=> 吗[ ˙ㄇㄚ ]，妈<span style="color:red;">[ ㄇㄚ ]</span>，麻[ ㄇㄚˊ ]，马[ ㄇㄚˇ ]，骂[ ㄇㄚˋ ]
+<br />
+<br />注：这里使用的<span style="color:orange;">注音默认输入法</span>和一般常用的方法一样，<span style="color:orange;">都是根据字典对 [ 轻声 ] 及 [ 第1声 ] 的注音方式与惯例来实行</span>。
+</p>
+
+<br />
+
+<p class="txt1">(5) <span style="color:orange;">如果使用者想要更改默认输入法</span>：由于拼音和注音的默认输入法都只和它们的 [轻声] 及 [第一声 / 第1声] 的声调标注情况有关，所以<span style="color:orange;">本程序的音节表有提供一些更改 [轻声] 及 [第一声] 声调的选项，而系统默认的设定选项则都用*做标记</span>。
+<br />
+<br />选项: 
+         <select style="background-color:WhiteSmoke;" disabled>
+            <option>拼音轻声标注左边(·a)</option>
+            <option selected>拼音轻声不用标注(a)*</option>
+            <option>拼音轻声标注右边(a·)</option>
+         </select>
+         <select style="background-color:WhiteSmoke;" disabled>
+            <option selected>注音轻声标注左边(˙ㄚ)*</option>
+            <option>注音轻声标注右边(ㄚ˙)</option>
+         </select>
+         <select style="background-color:WhiteSmoke;" disabled>
+            <option selected>注音第一声不用标注(ㄚ)*</option>
+            <option>注音第一声标注右边(ㄚˉ)</option>
+         </select>
+<br />
+<br />
+因此使用者只需选择其他的选项就能更改音节表，进而依此改变拼音或注音的默认输入法及转换后的输出结果。而要恢复原来的音节表，使用者只需确保选择所有以*做标记的选项即可。<br />
+</p>
+
+<p class="txt1">参考 Ref：
+<a href="#fmToneTable"><input type="button" value="音节表与选项 ToneTable&Choices&#9851;" name="btnToneTable" id="btnToneTable" onclick="onOffEditToneTable()"></a>
+请看 [ 选项 ] 的部分。
+</p>
+
+<p><br /></p>
+
+<h3 style="font-size:18px;color:magenta;text-decoration:underline;">额外工具 (Extra Tool)</h3>
+<p class="txt1">对使用数字声调方法的拼音（pyNum），例如 ma, ma0, ma1, ma2, ma3, ma4, ma5，它们的数字轻声声调可以是这三种形式（" ", "0", 或 "5"）中的任何一种，即（ma, ma0, ma5）。
+<br />
+<br />以下是（在有需要时）让这三种形式的数字轻声声调在它们之间相互转换的一个工具。例如，由于"0"在一些程序中并不做为数字轻声声调，所以任何被输入的，含有"0"的pyNum，在使用前就需要被转换成 " " 或 "5"。
+</p>
+
+<br />
+
+<form id="fmChgPyLightToneNum" name="fmChgPyLightToneNum" style="text-align:xcenter;">
+  <select name="selPyLightToneNum" id="selPyLightToneNum" onChange="selectPyLightToneNum()" style="background-color:WhiteSmoke;">
+    <option value="selPyLtNumTo_nil">改拼音轻声声调号码 = " "</option>
+    <option value="selPyLtNumTo_0">改拼音轻声声调号码 = "0"</option>
+    <option value="selPyLtNumTo_5">改拼音轻声声调号码 = "5"</option>
+  </select>
+<input type="button" value="eg" name="btnEg" onclick="document.getElementById('inputPyNumList').value=document.getElementById('eg10').value">
+  <br />
+  <textarea name="inputPyNumList" id="inputPyNumList" placeholder="请输入一行或多行pyNum。每个输入的音节之间必须以空白隔开。" style="width:45%;height:150px;font-size:16px;"></textarea>
+  <textarea name="outputPyNumList" id="outputPyNumList" placeholder="转换结果将呈现于此。" style="width:45%;height:150px;font-size:16px;"></textarea>
+</form>
+
+<p class="txt1">
+<br />注1：以上的工具只适用于pyNum（即以数字做为声调的拼音，例如 ma, ma0, ma1, ma2, ma3, ma4, ma5），不适用于以符号做为声调的拼音，mā, má, mǎ, mà 或英文字。
+<br />
+<br />注2：若使用者输入以符号做为声调的拼音，例如 mā, má, mǎ, mà 或英文字，由于它们包含有英文字母，所以将不会被以上的工具筛选去除，=> 它们将被处理及添加不需要的"0" 或 "5"。
+<br />
+<br />注3：只有非英文字，或任何不包含英文字母的字，才能被以上的工具筛选去除及不被处理。
+</p>
+
+<p><br /></p>
+
+<h3 style="font-size:18px;color:magenta;text-decoration:underline;">如何引用音节表方法 (How To Adapt and Use Tone Table Method)</h3>
+<p class="txt1">使用者可以查看这个例子：<a href="howToUseToneTableMtd.html" target="_blank">如何引用音节表方法 (英文说明) &#8599; </a>。</P>
+
+<p><br /></p>
+
+<h3 style="font-size:18px;color:magenta;text-decoration:underline;">其他事项 (Other Matters)</h3>
+<p class="txt1">这里提供的拼音排序是根据pyNum（例如 ma, ma1, ma2, ma3, ma4, ma5）的排序。由于ma和ma5都代表轻声声调的拼音，所以只要选择使用ma或ma5，使用者就能决定轻声声调的拼音是排序在前面或后面。</P>
+
+<p><br /></p>
+
+<h3 style="font-size:18px;color:magenta;text-decoration:underline;">有关的版权 / 许可协议 (The Copyrights / License)</h3>
+<p class="txt1">这个《拼音注音转换》程序的分发与使用是遵照：<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative Commons Attribution-ShareAlike 4.0 International License (署名-相同方式共享 4.0 国际) &#8599; </a>.</P>
+
+<p><br /></p>
+
+<h3 style="font-size:18px;color:magenta;text-decoration:underline;">免责声明 (Disclaimer)</h3>
+<p class="txt1">自语区Self Talk Zone公开声明不保证这个《拼音注音转换》程序的准确、可靠、免于出错，以及不保证经由使用这个程序所取得的任何下载的，程序处理提供的或其他方式获得的资料、讯息、结果的准确、可靠和免于出错。因此任何人若决定要使用这个程序，他们必须自行考量且自负风险。</p>
+
+</div>
+
+<textarea name="eg1" id="eg1" style="display:none;">
+ni3
+hao3
+ma
+hao3 jiu3 bu4 jian4
+</textarea>
+
+<textarea name="eg2" id="eg2" style="display:none;">
+ㄋㄧˇ ㄏㄠˇ ˙ㄇㄚ
+ㄏㄠˇ ㄐㄧㄡˇ ㄅㄨˋ ㄐㄧㄢˋ
+</textarea>
+
+<textarea name="eg3" id="eg3" style="display:none;">
+nǐ
+hǎo
+ma
+hǎo jiǔ bù jiàn
+</textarea>
+
+<textarea name="eg4" id="eg4" style="display:none;">
+ni3 你
+hao3 好
+ma 吗
+hao3 好
+jiu3 久
+bu4 不
+jian4 见
+</textarea>
+
+<textarea name="eg5" id="eg5" style="display:none;">
+你 ni3
+好 hao3
+吗 ma
+好 hao3
+久 jiu3
+不 bu4
+见 jian4
+</textarea>
+
+<textarea name="eg6" id="eg6" style="display:none;">
+ni3 hao3 ma 你好吗
+hao3 jiu3 bu4 jian4 好久不见
+你好吗 ni3 hao3 ma
+好久不见 hao3 jiu3 bu4 jian4
+</textarea>
+
+<textarea name="eg7" id="eg7" style="display:none;">
+wo3 men2 我们
+xing1 qi2 tian1 zao3 shang4 星期天早上
+xiang3 qu4 lao3 di4 fang1 想去老地方
+chi4 dian3 xin1 吃点心
+ni3 you3 kong1 ma 你有空吗
+</textarea>
+
+<textarea name="eg8" id="eg8" style="display:none;">
+我们约定 wo3 men2 yue4 ding4
+星期天早上 xing1 qi2 tian1 zao3 shang4
+去跑步 qu4 pao3 bu4
+你有空吗 ni3 you3 kong1 ma
+</textarea>
+
+<textarea name="eg9" id="eg9" style="display:none;">
+ni3 hao3 ma
+wo3 men2
+xiang3
+jian4 ni3
+</textarea>
+
+<textarea name="eg10" id="eg10" style="display:none;">
+ni3
+hao3
+ma
+hao3 jiu3 mei2 jian4 le
+ma ma0 ma1 ma2 ma3 ma4 ma5
+</textarea>
+
+<br /><br /> <!-- Re-located the display of Tone Table and all its control to the end of html file. -->
+
+<form id="fmToneTable" name="fmToneTable" style="text-align:center;display:none;">
+         <span style="color:magenta;">音节表与选项<br />Tone Table & Choices<br /></span>
+         <select name="selPyLightTonePos" id="selPyLightTonePos" onChange="setPyLightTonePos()" style="background-color:WhiteSmoke;">
+            <option value="pyLtLeft">拼音轻声标注左边(·a)</option>
+            <option value="pyLtNone" selected>拼音轻声不用标注(a)*</option> <!-- All * are the default selected values. -->
+            <option value="pyLtRight">拼音轻声标注右边(a·)</option>
+         </select>
+         <select name="selZyLightTonePos" id="selZyLightTonePos" onChange="setZyLightTonePos()" style="background-color:WhiteSmoke;">
+            <option value="zyLtLeft" selected>注音轻声标注左边(˙ㄚ)*</option>
+            <!--<option value="zyLtNone">注音轻声不用标注</option>-->
+            <option value="zyLtRight">注音轻声标注右边(ㄚ˙)</option>
+         </select>
+         <select name="selZyFirstTonePos" id="selZyFirstTonePos" onChange="setZyFirstTonePos()" style="background-color:WhiteSmoke;">
+            <option value="zyFtNone" selected>注音第一声不用标注(ㄚ)*</option>
+            <option value="zyFtRight">注音第一声标注右边(ㄚˉ)</option>
+         </select>
+<input type="button" value="关闭 Close" name="btnClose" id="btnClose" onclick="onOffEditToneTable()">
+<br />
+<textarea class="engFont" name="toneTbS1" id="toneTbS1" placeholder="每当更改后，新的 pyNumArr[0] 至 pyNumArr[26] 将罗列于此。(* = 系统默认的设定)" style="width:30%;height:100px;background-color:#CCFFFF;">
+</textarea>
+<textarea class="engFont" name="toneTbS2" id="toneTbS2" placeholder="每当更改后，新的 pyToneArr[0] 至 pyToneArr[26] 将罗列于此。(* = 系统默认的设定)" style="width:30%;height:100px;background-color:#CCFFFF;">
+</textarea>
+<textarea class="engFont" name="toneTbS3" id="toneTbS3" placeholder="每当更改后，新的 zyToneArr[0] 至 zyToneArr[26] 将罗列于此。(* = 系统默认的设定)" style="width:30%;height:100px;background-color:#CCFFFF;">
+</textarea>
+</form>
+
+<!-- TTb = Tone Table. -->
+<div id="displayTTb" style="text-align:center;"></div> <!-- This is a div with id="displayTTb": Tone Table will display here. -->
+
+
+</body>
+</html>
