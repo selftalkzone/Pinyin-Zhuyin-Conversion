@@ -1,5 +1,6 @@
 
-// NB: This is pyzyToneTableMtdNew.js (use as common JS file) by 自语区 Self Talk Zone
+// NB1: This is pyzyToneTableMtdNewEditOff.js (use as common JS file) by 自语区 Self Talk Zone
+// NB2: The window.addEventListener("load", function() {chkOrCreateControl4ToneTable();}); code is marked as ---EditOff---, => it is de-activated.
 // Ref: pyzyToneTableMtdNewUnTrim.js
 // License: Creative Commons Attribution-ShareAlike 4.0 International License (署名-相同方式共享 4.0 国际)
 // Last updated on: 17/Jan/2024
@@ -1011,7 +1012,7 @@ zyAlphabetArr[26] = "ㄗㄓ";
 
 
 // NB: To make the default built-in Tone Table editable (plus view and display it), add the following code, else, need not add (=> just use the Tone Table).
-window.addEventListener("load", function() {chkOrCreateControl4ToneTable();}); // When file onload, it will activate function chkOrCreateControl4ToneTable().
+//---EditOff---window.addEventListener("load", function() {chkOrCreateControl4ToneTable();}); // When file onload, it will activate function chkOrCreateControl4ToneTable(). // 12/Jan/2024.
 
 
 function chkOrCreateControl4ToneTable() {
