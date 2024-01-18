@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>How To Use Tone Table Method (Editable version)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="pyzyToneTableMtdNew.js"></script> <!-- Step-1 -->
+
+</head>
+<body>
+
+<h2 style="text-align:center;color:magenta;text-decoration:underline;">如何引用音节表方法 (英文说明)<br />How To Adapt and Use Tone Table Method<br /></h2>
+
+<p style="text-align:center;">Note: To use Tone Table Method, <span style="color:red;">with the option to view or edit the Tone Table</span>.<br /><br /></p>
+
+<h3>Step-1: <a href="pyzyToneTableMtdNew.js" style="color:blue;" download>Download a copy</a> of external javascript file <span style="color:red;">pyzyToneTableMtdNew.js</span> which contains convertPyZy() and convertZyPy() methods. Create a html file and link to the js file via < script src="pyzyToneTableMtdNew.js" >< /script >.</h3>
+
+<br />
+
+<p><span style="color:red;">convertPyZy() method</span> will receive pyTxt (eg: ni3 hao3 ma) as parameter and return an object with three properties, i.e: pyNumResult, pyResult and zyResult. If fail to convert, it will return the original pyTxt with ??? for all the three object properties.</p>
+
+<p><span style="color:red;">convertZyPy() method</span> will receive zyTxt (eg: ㄏㄠˇ ㄐㄧㄡˇ ㄅㄨˋ ㄐㄧㄢˋ) as parameter and return an object with three properties, i.e: pyNumResult, pyResult and zyResult. If fail to convert, it will return the original zyTxt with ??? for all the three object properties.</p>
+
+<p>Note: When the external javascript file pyzyToneTableMtdNew.js is loaded with the html file, <span style="color:red;">it will prompt user to add extra html codes</span>, user can decide add or not add accordingly. </p>
+
+<br />
+
+<h3>Step-2: Create javascript functions, says: pyToZy() and zyToPy() (as shown below), to use convertPyZy() and convertZyPy() methods.</h3>
+
+<pre> <!-- Step-2 -->
+<script style="display:block;">
+function pyToZy() {
+  var pyTxt = document.getElementById("txtInput").value.trim();
+  var answer = convertPyZy(pyTxt);
+  alert(answer.pyNumResult + "\n\n" + answer.pyResult + "\n\n" + answer.zyResult);
+}
+
+function zyToPy() {
+  var zyTxt = document.getElementById("txtInput").value.trim();
+  var answer = convertZyPy(zyTxt);
+  alert(answer.pyNumResult + "\n\n" + answer.pyResult + "\n\n" + answer.zyResult);
+}
+</script>
+</pre>
+
+<h3>Step-3: Create html text input and buttons to activate the pyToZy() and zyToPy() functions.</h3><br />
+
+<input type="text" id="txtInput" name="txtInput" size="28" placeholder="Please input pinyin or zhuyin here."> <!-- Step-3 -->
+<br /><br />
+<input type="button" onclick="pyToZy()" value="Pinyin--->Zhuyin">
+<input type="button" onclick="zyToPy()" value="Zhuyin--->Pinyin">
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+</body>
+</html>
